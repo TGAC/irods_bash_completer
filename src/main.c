@@ -21,6 +21,9 @@
 #include "byte_buffer.h"
 
 
+static char *GetParentPath (const char *path_s);
+
+
 static bool s_debug_flag = false;
 
 
@@ -52,7 +55,7 @@ int main (int argc, char *argv [])
 							char *input_path_s = (char *) argv [1];
 							int flags = DATA_QUERY_FIRST_FG;
 
-							status = GetCollectionEntries (connection_p, input_path_s, &error_info_s, &error_status_s);
+							memset (&coll_handle, 0, sizeof (collHandle_t));
 
 							// Open the collection.
 							if (s_debug_flag)
@@ -60,6 +63,99 @@ int main (int argc, char *argv [])
 									printf ("Opening \"%s\"\n", input_path_s);
 								}
 
+							/*
+							 * Start by trying the input path as a complete
+							 * and valid path
+							 */
+							status = rclOpenCollection (connection_p, input_path_s, flags, &coll_handle);
+
+							if (status < 0)
+								{
+									/*
+									 * Now try it as an incomplete path
+									 */
+									char *parent_s = GetParentPath (input_path_s);
+
+									if (parent_s)
+										{
+											status = rclOpenCollection (connection_p, parent_s, flags, &coll_handle);
+
+											if (status < 0)
+												{
+
+												}		/* if (handle < 0) */
+
+											free (parent_s);
+										}		/* if (parent_s) */
+
+								}
+
+							if (status >= 0)
+								{
+									ByteBuffer *buffer_p = AllocateByteBuffer (1024);
+
+									if (buffer_p)
+										{
+											collEnt_t coll_entry;
+											size_t index = 0;
+
+											do
+												{
+													status = rclReadCollection (connection_p, &coll_handle, &coll_entry);
+
+													if (status < 0)
+														{
+															if (status != CAT_NO_ROWS_FOUND)
+																{
+																	/* Failed to read collection */
+																	error_info_s = "rclReadCollection";
+																	error_status_s = rodsErrorName (status, NULL);
+
+																	res = 10;
+																}
+														}
+													else
+														{
+															const char *name_s = (coll_entry.objType == DATA_OBJ_T) ? coll_entry.dataName : GetLocalName (coll_entry.collName);
+
+															if (s_debug_flag)
+																{
+																	printf ("[%lu]: \"%s\"\n", index, name_s);
+																}
+
+															if (index > 0)
+																{
+																	AppendStringsToByteBuffer (buffer_p, " ", name_s, NULL);
+																}
+															else
+																{
+																	AppendStringsToByteBuffer (buffer_p, name_s, NULL);
+																}
+
+															++ index;
+														}
+
+												}
+											while (status >= 0);
+
+											if (GetByteBufferSize (buffer_p))
+												{
+													const char *data_s = GetByteBufferData (buffer_p);
+
+													printf ("%s\n", data_s);
+												}
+
+											FreeByteBuffer (buffer_p);
+										}		/* if (buffer_p) */
+
+									rclCloseCollection (&coll_handle);
+								}		/* if (handle >= 0) */
+							else
+								{
+									error_info_s = "rclOpenCollection";
+									error_status_s = rodsErrorName (status, NULL);
+									res = 10;
+								}
 
 						}		/* if (status == 0) */
 					else
@@ -195,6 +291,44 @@ static const char *GetLocalName (const char *path_s)
 							-- ptr;
 						}
 				}
+		}
+
+	return res_s;
+}
+
+
+
+static char *GetParentPath (const char *path_s)
+{
+	char *res_s = NULL;
+	size_t len = strlen (path_s);
+
+	if (len)
+		{
+			size_t i = len - 1;
+			const char *ptr = path_s + i;
+
+			while (i > 0)
+				{
+					if (*ptr == '/')
+						{
+							res_s = (char *) malloc ((i + 1) * sizeof (char));
+
+							if (res_s)
+								{
+									strncpy (res_s, path_s, i);
+									* (res_s + i) = '\0';
+								}
+
+							i = 0;
+						}
+					else
+						{
+							-- i;
+							-- ptr;
+						}
+				}
+
 		}
 
 	return res_s;
