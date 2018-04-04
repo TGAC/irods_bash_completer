@@ -1,13 +1,5 @@
 /*
- * byte_buffer.c
- *
- *  Created on: 4 Apr 2018
- *      Author: billy
- */
-
-
-/*
-** Copyright 2014-2016 The Earlham Institute
+** Copyright 2018 The Earlham Institute
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
