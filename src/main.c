@@ -22,6 +22,9 @@
 
 static const char *GetLocalName (const char *path_s);
 
+static char *GetParentPath (const char *path_s);
+
+
 static bool s_debug_flag = false;
 
 
@@ -45,12 +48,9 @@ int main (int argc, char *argv [])
 					if (status == 0)
 						{
 							collHandle_t coll_handle;
-							collInp_t input_path;
 							char *input_path_s = (char *) argv [1];
 							int flags = DATA_QUERY_FIRST_FG;
-
-							memset (&input_path, 0, sizeof (collInp_t));
-							strcpy (input_path.collName, argv [1]);
+							int handle = -1;
 
 							memset (&coll_handle, 0, sizeof (collHandle_t));
 
@@ -60,9 +60,34 @@ int main (int argc, char *argv [])
 									printf ("Opening \"%s\"\n", input_path_s);
 								}
 
-							status = rclOpenCollection (conn_p, input_path_s, flags, &coll_handle);
+							/*
+							 * Start by trying the input path as a complete
+							 * and valid path
+							 */
+							handle = rclOpenCollection (conn_p, input_path_s, flags, &coll_handle);
 
-							if (status == 0)
+							if (handle < 0)
+								{
+									/*
+									 * Now try it as an incomplete path
+									 */
+									char *parent_s = GetParentPath (input_path_s);
+
+									if (parent_s)
+										{
+											handle = rclOpenCollection (conn_p, parent_s, flags, &coll_handle);
+
+											if (handle < 0)
+												{
+
+												}		/* if (handle < 0) */
+
+											free (parent_s);
+										}		/* if (parent_s) */
+
+								}
+
+							if (handle >= 0)
 								{
 									ByteBuffer *buffer_p = AllocateByteBuffer (1024);
 
@@ -112,12 +137,16 @@ int main (int argc, char *argv [])
 
 											if (GetByteBufferSize (buffer_p))
 												{
-													char *data_s = DetachByteBufferData (buffer_p);
+													const char *data_s = GetByteBufferData (buffer_p);
 
 													printf ("%s\n", data_s);
 												}
+
+											FreeByteBuffer (buffer_p);
 										}		/* if (buffer_p) */
-								}
+
+									rclCloseCollection (&coll_handle);
+								}		/* if (handle >= 0) */
 							else
 								{
 									error_info_s = "rclOpenCollection";
@@ -157,8 +186,6 @@ int main (int argc, char *argv [])
 }
 
 
-
-
 static const char *GetLocalName (const char *path_s)
 {
 	const char *res_s = path_s;
@@ -182,6 +209,44 @@ static const char *GetLocalName (const char *path_s)
 							-- ptr;
 						}
 				}
+		}
+
+	return res_s;
+}
+
+
+
+static char *GetParentPath (const char *path_s)
+{
+	char *res_s = NULL;
+	size_t len = strlen (path_s);
+
+	if (len)
+		{
+			size_t i = len - 1;
+			const char *ptr = path_s + i;
+
+			while (i > 0)
+				{
+					if (*ptr == '/')
+						{
+							res_s = (char *) malloc ((i + 1) * sizeof (char));
+
+							if (res_s)
+								{
+									strncpy (res_s, path_s, i);
+									* (res_s + i) = '\0';
+								}
+
+							i = 0;
+						}
+					else
+						{
+							-- i;
+							-- ptr;
+						}
+				}
+
 		}
 
 	return res_s;
