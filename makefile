@@ -5,7 +5,7 @@ IRODS_HOME := /home/billy/Applications/irods
 IRODS_LIB_DIR := $(IRODS_HOME)/usr/lib
 IRODS_INCLUDE_DIR := $(IRODS_HOME)/usr/include/irods
 
-IRODS_LIBS := irods_client irods_common irods_plugin_dependencies
+IRODS_LIBS := irods_plugin_dependencies irods_client irods_common 
 
 OUTPUT_DIR	 := build
 
@@ -28,9 +28,8 @@ all: init comp $(OBJ_FILES)
 
 
 
-comp: init $(OBJFILES)
-	@echo "LIB_PATHS: $(LIB_PATHS)"
-	$(LD) -o $(OUTPUT_DIR)/irods_bash_completer $(OBJFILES) $(STATIC_LIBS) $(LDFLAGS)
+comp: init $(OBJ_FILES)
+	$(CC) -o $(OUTPUT_DIR)/irods_bash_completer $(OBJ_FILES) $(STATIC_LIBS) $(LDFLAGS)
 
 init:
 	mkdir -p $(OUTPUT_DIR)
