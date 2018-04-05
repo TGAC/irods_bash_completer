@@ -23,7 +23,7 @@ which will create the tool at ```build/irods_bash_completer```. You can copy thi
 
 ## Configuring the Bash auto-completion
 
-The Bash auto-completion script is at ```bash/icommands.d```. You will need to edit the ```opts`` line in this file to match the 
+The Bash auto-completion script is at ```bash/icommands.d```. You will need to edit the ```opts``` line in this file to match the 
 location of where you copied the executable ```irods_bash_completer``` to. For example if you installed it in ```/usr/bin```, then
 you would need to change the line from
 
