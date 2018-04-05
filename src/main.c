@@ -20,17 +20,25 @@
 
 #include "byte_buffer.h"
 
+/*
+ * STATIC VARIABLES
+ */
+
+static bool s_verbose_flag = false;
+
+
+/*
+ * STATIC DECLARATIONS
+ */
 
 static char *GetParentPath (const char *path_s);
 
-
-static bool s_debug_flag = false;
-
-
 static const char *GetLocalName (const char *path_s);
-static int GetCollectionEntries (rcComm_t *connection_p, char *path_s, const char **error_info_ss, const char **error_status_ss);
 
 
+/*
+ * DEFINITIONS
+ */
 
 int main (int argc, char *argv [])
 {
@@ -39,6 +47,27 @@ int main (int argc, char *argv [])
 	int status = getRodsEnv (&env);
 	const char *error_info_s = NULL;
 	const char *error_status_s = NULL;
+
+	/*
+	 * Parse the command line arguments.
+	 */
+	if (argc > 1)
+		{
+			int i;
+
+			for (i = 1; i < argc - 1; ++ i)
+				{
+					if (*argv [i] == '-')
+						{
+							char c = * (argv [i] + 1);
+
+							if (c == 'v')
+								{
+									s_verbose_flag = true;
+								}
+						}
+				}
+		}
 
 	if (status >= 0)
 		{
@@ -52,13 +81,14 @@ int main (int argc, char *argv [])
 					if (status == 0)
 						{
 							collHandle_t coll_handle;
-							char *input_path_s = (char *) argv [1];
+							char *input_path_s = (char *) argv [argc - 1];
 							int flags = DATA_QUERY_FIRST_FG;
+							const char *partial_match_s = NULL;
+							size_t partial_match_length = 0;
 
 							memset (&coll_handle, 0, sizeof (collHandle_t));
 
-							// Open the collection.
-							if (s_debug_flag)
+							if (s_verbose_flag)
 								{
 									printf ("Opening \"%s\"\n", input_path_s);
 								}
@@ -76,14 +106,29 @@ int main (int argc, char *argv [])
 									 */
 									char *parent_s = GetParentPath (input_path_s);
 
+									if (s_verbose_flag)
+										{
+											printf ("Opening \"%s\"\n", parent_s);
+										}
+
 									if (parent_s)
 										{
 											status = rclOpenCollection (connection_p, parent_s, flags, &coll_handle);
 
 											if (status < 0)
 												{
-
+													error_info_s = "rclOpenCollection";
+													error_status_s = rodsErrorName (status, NULL);
 												}		/* if (handle < 0) */
+											else
+												{
+													partial_match_s = GetLocalName (input_path_s);
+
+													if (partial_match_s)
+														{
+															partial_match_length = strlen (partial_match_s);
+														}
+												}
 
 											free (parent_s);
 										}		/* if (parent_s) */
@@ -98,6 +143,7 @@ int main (int argc, char *argv [])
 										{
 											collEnt_t coll_entry;
 											size_t index = 0;
+											bool success_flag = true;
 
 											do
 												{
@@ -116,23 +162,54 @@ int main (int argc, char *argv [])
 														}
 													else
 														{
-															const char *name_s = (coll_entry.objType == DATA_OBJ_T) ? coll_entry.dataName : GetLocalName (coll_entry.collName);
+															bool add_flag = true;
 
-															if (s_debug_flag)
+															if (partial_match_s)
 																{
-																	printf ("[%lu]: \"%s\"\n", index, name_s);
+																	const char *local_s = GetLocalName (coll_entry.collName);
+
+																	if (local_s)
+																		{
+																			if (strncmp (local_s, partial_match_s, partial_match_length) != 0)
+																				{
+																					add_flag = false;
+																				}
+																		}
 																}
 
-															if (index > 0)
+															if (add_flag)
 																{
-																	AppendStringsToByteBuffer (buffer_p, " ", name_s, NULL);
-																}
-															else
-																{
-																	AppendStringsToByteBuffer (buffer_p, name_s, NULL);
-																}
+																	const char *data_s = GetByteBufferData (buffer_p);
 
-															++ index;
+																	if (index > 0)
+																		{
+																			if (!AppendStringToByteBuffer (buffer_p, " "))
+																				{
+																					success_flag = false;
+																				}
+																		}
+
+																	if (success_flag)
+																		{
+																			if (AppendStringsToByteBuffer (buffer_p, coll_entry.collName, "/", NULL))
+																				{
+																					if (coll_entry.objType == DATA_OBJ_T)
+																						{
+																							success_flag = AppendStringsToByteBuffer (buffer_p, coll_entry.dataName, NULL);
+																						}
+
+																					if (s_verbose_flag)
+																						{
+																							printf ("[%lu]: \"%s\" %d\n", index, data_s, success_flag);
+																						}
+
+																				}
+
+
+																		}		/* if (success_flag) */
+
+																	++ index;
+																}		/* if (add_flag) */
 														}
 
 												}
@@ -142,7 +219,15 @@ int main (int argc, char *argv [])
 												{
 													const char *data_s = GetByteBufferData (buffer_p);
 
-													printf ("%s\n", data_s);
+													if (s_verbose_flag)
+														{
+															printf ("final value: \"%s\"\n", data_s);
+														}
+
+													/*
+													 * Print out the space-separated matching paths
+													 */
+													printf ("%s", data_s);
 												}
 
 											FreeByteBuffer (buffer_p);
@@ -179,7 +264,7 @@ int main (int argc, char *argv [])
 
 	if (error_info_s)
 		{
-			if (s_debug_flag)
+			if (s_verbose_flag)
 				{
 					printf ("%s \"%s\"\n", error_info_s, error_status_s);
 				}
@@ -189,85 +274,14 @@ int main (int argc, char *argv [])
 }
 
 
-static int GetCollectionEntries (rcComm_t *connection_p, char *path_s, const char **error_info_ss, const char **error_status_ss)
-{
-	collHandle_t coll_handle;
-	int status;
-	int res = 0;
-
-	memset (&coll_handle, 0, sizeof (collHandle_t));
-
-	status = rclOpenCollection (connection_p, path_s, DATA_QUERY_FIRST_FG, &coll_handle);
-
-	if (status == 0)
-		{
-			ByteBuffer *buffer_p = AllocateByteBuffer (1024);
-
-			if (buffer_p)
-				{
-					collEnt_t coll_entry;
-					size_t index = 0;
-
-					do
-						{
-							status = rclReadCollection (connection_p, &coll_handle, &coll_entry);
-
-							if (status < 0)
-								{
-									if (status != CAT_NO_ROWS_FOUND)
-										{
-											/* Failed to read collection */
-											*error_info_ss = "rclReadCollection";
-											*error_status_ss = rodsErrorName (status, NULL);
-
-											res = 10;
-										}
-								}
-							else
-								{
-									const char *name_s = (coll_entry.objType == DATA_OBJ_T) ? coll_entry.dataName : GetLocalName (coll_entry.collName);
-
-									if (s_debug_flag)
-										{
-											printf ("[%lu]: \"%s\"\n", index, name_s);
-										}
-
-									if (index > 0)
-										{
-											AppendStringsToByteBuffer (buffer_p, " ", name_s, NULL);
-										}
-									else
-										{
-											AppendStringsToByteBuffer (buffer_p, name_s, NULL);
-										}
-
-									++ index;
-								}
-
-						}
-					while (status >= 0);
-
-					if (GetByteBufferSize (buffer_p))
-						{
-							char *data_s = DetachByteBufferData (buffer_p);
-
-							printf ("%s\n", data_s);
-						}
-				}		/* if (buffer_p) */
-		}
-	else
-		{
-			*error_info_ss = "rclOpenCollection";
-			*error_status_ss = rodsErrorName (status, NULL);
-
-			res = 10;
-		}
-
-	return res;
-}
-
-
-
+/**
+ * Get the local name of a data object or collection.
+ *
+ * This is the value after the last "/" in the given path.
+ *
+ * @param path_s The path to use.
+ * @return The local name or <code>NULL</code> upon error.
+ */
 static const char *GetLocalName (const char *path_s)
 {
 	const char *res_s = path_s;
@@ -282,7 +296,7 @@ static const char *GetLocalName (const char *path_s)
 				{
 					if (*ptr == '/')
 						{
-							res_s = ptr;
+							res_s = ptr + 1;
 							i = 0;
 						}
 					else
@@ -297,7 +311,14 @@ static const char *GetLocalName (const char *path_s)
 }
 
 
-
+/**
+ * Get the parent of a data object or collection.
+ *
+ * This is the value upto last "/" in the given path.
+ *
+ * @param path_s The path to use.
+ * @return The parent or <code>NULL</code> upon error.
+ */
 static char *GetParentPath (const char *path_s)
 {
 	char *res_s = NULL;
@@ -308,10 +329,19 @@ static char *GetParentPath (const char *path_s)
 			size_t i = len - 1;
 			const char *ptr = path_s + i;
 
-			while (i > 0)
+			while (ptr >= path_s)
 				{
 					if (*ptr == '/')
 						{
+							/*
+							 * If we are at the root, make sure we include the / separator.
+							 * For all other levels, leave it off
+							 */
+							if (i == 0)
+								{
+									++ i;
+								}
+
 							res_s = (char *) malloc ((i + 1) * sizeof (char));
 
 							if (res_s)
@@ -320,13 +350,14 @@ static char *GetParentPath (const char *path_s)
 									* (res_s + i) = '\0';
 								}
 
-							i = 0;
+							ptr = path_s - 1;
 						}
 					else
 						{
 							-- i;
 							-- ptr;
 						}
+
 				}
 
 		}

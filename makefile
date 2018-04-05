@@ -17,16 +17,14 @@ OBJ_FILES := $(SRC_FILES:%.c=$(OUTPUT_DIR)/%.o)
 
 VPATH := src
 
-CFLAGS += -I$(IRODS_INCLUDE_DIR) -Iinclude -Wextra -Wall -pedantic
+CFLAGS += -I$(IRODS_INCLUDE_DIR) -Iinclude -Wextra -Wall -pedantic -ggdb
 
 LDFLAGS += $(addprefix -l, $(IRODS_LIBS)) \
-	-L $(IRODS_LIB_DIR) \
+	-L $(IRODS_LIB_DIR) 
 
-
+.PHONY: all comp init clean
 
 all: init comp $(OBJ_FILES)
-
-
 
 
 comp: init $(OBJ_FILES)
