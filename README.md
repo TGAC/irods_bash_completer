@@ -28,9 +28,9 @@ which will create the tool at ```build/irods_bash_completer```. You can copy thi
 # Credits
 
 iRODS Bash Completer is written by [Simon Tyrrell](https://github.com/billyfish). For questions or support, contact me directly or 
-via the [Earlham Institute](http://www.earlham.ac.uk/contact-us/) page.v
+via the [Earlham Institute](http://www.earlham.ac.uk/contact-us/) page.
 
 
 ## License ##
 
-Copyright (c) 2018, Earlham Institute.
+Copyright (c) 2018, Earlham Institute under the Apache License Version 2.0.
