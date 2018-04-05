@@ -11,7 +11,7 @@ script.
 
 The tool is built with the given makefile. You will need to have the iRODS header files and runtime libraries to build it.
 By default, these will be in ```/usr/include/irods/``` and ```/usr/lib/```, however, if you have installed iRODS to a non-standard
-location, simply adjust the ```IRODS_HOME``` variable in the makefile to the appropraite value.
+location, simply adjust the ```IRODS_HOME``` variable in the makefile to the appropriate value.
 
 You can then build the tool by running
 
@@ -19,7 +19,7 @@ You can then build the tool by running
 make all
 ~~~
 
-which will create the tool at ```build/irods\_bash\_completer```. You can copy this executeable to wherever you want to run it from.
+which will create the tool at ```build/irods_bash_completer```. You can copy this executable to wherever you want to run it from.
 
 ## Configuring the Bash auto-completion
 
