@@ -10,7 +10,7 @@ script.
 ## Building the command line tool
 
 The tool is built with the given makefile. You will need to have the iRODS header files and runtime libraries to build it.
-By default, these will be in ```/usr/include/irods/``` and ```/usr/lib/``, however, if you have installed iRODS to a non-standard
+By default, these will be in ```/usr/include/irods/``` and ```/usr/lib/```, however, if you have installed iRODS to a non-standard
 location, simply adjust the ```IRODS_HOME``` variable in the makefile to the appropraite value.
 
 You can then build the tool by running
