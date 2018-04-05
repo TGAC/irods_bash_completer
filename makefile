@@ -1,7 +1,10 @@
+-include user.prefs
+
 CC := gcc
 
-IRODS_HOME := /home/billy/Applications/irods/
-#IRODS_HOME := /
+ifeq ($(IRODS_HOME),)
+IRODS_HOME := /
+endif
 
 IRODS_LIB_DIR := $(IRODS_HOME)usr/lib
 IRODS_INCLUDE_DIR := $(IRODS_HOME)usr/include/irods
@@ -17,7 +20,7 @@ OBJ_FILES := $(SRC_FILES:%.c=$(OUTPUT_DIR)/%.o)
 
 VPATH := src
 
-CFLAGS += -I$(IRODS_INCLUDE_DIR) -Iinclude -Wextra -Wall -pedantic -ggdb
+CFLAGS += -I$(IRODS_INCLUDE_DIR) -Iinclude -Wextra -Wall
 
 LDFLAGS += $(addprefix -l, $(IRODS_LIBS)) \
 	-L $(IRODS_LIB_DIR) 
