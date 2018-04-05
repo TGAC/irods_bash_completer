@@ -35,6 +35,8 @@ static char *GetParentPath (const char *path_s);
 
 static const char *GetLocalName (const char *path_s);
 
+static int GetEntries (char *path_s, const char *partial_match_s, rcComm_t *connection_p, ByteBuffer *buffer_p);
+
 
 /*
  * DEFINITIONS
@@ -45,8 +47,6 @@ int main (int argc, char *argv [])
 	int res = 0;
 	rodsEnv env;
 	int status = getRodsEnv (&env);
-	const char *error_info_s = NULL;
-	const char *error_status_s = NULL;
 
 	/*
 	 * Parse the command line arguments.
@@ -65,9 +65,12 @@ int main (int argc, char *argv [])
 								{
 									s_verbose_flag = true;
 								}
-						}
-				}
-		}
+
+						}		/* if (*argv [i] == '-') */
+
+				}		/* for (i = 1; i < argc - 1; ++ i) */
+
+		}		/* if (argc > 1) */
 
 	if (status >= 0)
 		{
@@ -80,197 +83,246 @@ int main (int argc, char *argv [])
 
 					if (status == 0)
 						{
-							collHandle_t coll_handle;
-							char *input_path_s = (char *) argv [argc - 1];
-							int flags = DATA_QUERY_FIRST_FG;
-							const char *partial_match_s = NULL;
-							size_t partial_match_length = 0;
+							ByteBuffer *buffer_p = AllocateByteBuffer (1024);
 
-							memset (&coll_handle, 0, sizeof (collHandle_t));
-
-							if (s_verbose_flag)
+							if (buffer_p)
 								{
-									printf ("Opening \"%s\"\n", input_path_s);
-								}
+									char *parent_s = NULL;
+									char *input_path_s = (char *) argv [argc - 1];
 
-							/*
-							 * Start by trying the input path as a complete
-							 * and valid path
-							 */
-							status = rclOpenCollection (connection_p, input_path_s, flags, &coll_handle);
+									/*
+									 * Get the matches assuming the path is a complete valid path
+									 */
+									int num_entries = GetEntries (input_path_s, NULL, connection_p, buffer_p);
 
-							if (status < 0)
-								{
+									if (num_entries >= 0)
+										{
+											if (s_verbose_flag)
+												{
+													printf ("added %d entries for matches of \"%s\"\n", num_entries, input_path_s);
+												}
+										}
+									else
+										{
+
+										}
+
 									/*
 									 * Now try it as an incomplete path
 									 */
-									char *parent_s = GetParentPath (input_path_s);
-
-									if (s_verbose_flag)
-										{
-											printf ("Opening \"%s\"\n", parent_s);
-										}
+									parent_s = GetParentPath (input_path_s);
 
 									if (parent_s)
 										{
-											status = rclOpenCollection (connection_p, parent_s, flags, &coll_handle);
+											const char *local_s = GetLocalName (input_path_s);
 
-											if (status < 0)
+											if (local_s)
 												{
-													error_info_s = "rclOpenCollection";
-													error_status_s = rodsErrorName (status, NULL);
-												}		/* if (handle < 0) */
-											else
-												{
-													partial_match_s = GetLocalName (input_path_s);
+													int num_partial_entries = GetEntries (parent_s, local_s, connection_p, buffer_p);
 
-													if (partial_match_s)
+													if (num_partial_entries >= 0)
 														{
-															partial_match_length = strlen (partial_match_s);
-														}
-												}
+															if (s_verbose_flag)
+																{
+																	printf ("added %d entries for partial matches of \"%s\"\n", num_partial_entries, input_path_s);
+																	num_entries += num_partial_entries;
+																}
+
+														}		/* if (num_partial_entries >= 0) */
+
+												}		/* if (local_s) */
 
 											free (parent_s);
 										}		/* if (parent_s) */
 
-								}
-
-							if (status >= 0)
-								{
-									ByteBuffer *buffer_p = AllocateByteBuffer (1024);
-
-									if (buffer_p)
+									if (GetByteBufferSize (buffer_p) > 0)
 										{
-											collEnt_t coll_entry;
-											size_t index = 0;
-											bool success_flag = true;
+											const char *data_s = GetByteBufferData (buffer_p);
 
-											do
+											if (s_verbose_flag)
 												{
-													status = rclReadCollection (connection_p, &coll_handle, &coll_entry);
-
-													if (status < 0)
-														{
-															if (status != CAT_NO_ROWS_FOUND)
-																{
-																	/* Failed to read collection */
-																	error_info_s = "rclReadCollection";
-																	error_status_s = rodsErrorName (status, NULL);
-
-																	res = 10;
-																}
-														}
-													else
-														{
-															bool add_flag = true;
-
-															if (partial_match_s)
-																{
-																	const char *local_s = GetLocalName (coll_entry.collName);
-
-																	if (local_s)
-																		{
-																			if (strncmp (local_s, partial_match_s, partial_match_length) != 0)
-																				{
-																					add_flag = false;
-																				}
-																		}
-																}
-
-															if (add_flag)
-																{
-																	const char *data_s = GetByteBufferData (buffer_p);
-
-																	if (index > 0)
-																		{
-																			if (!AppendStringToByteBuffer (buffer_p, " "))
-																				{
-																					success_flag = false;
-																				}
-																		}
-
-																	if (success_flag)
-																		{
-																			if (AppendStringsToByteBuffer (buffer_p, coll_entry.collName, "/", NULL))
-																				{
-																					if (coll_entry.objType == DATA_OBJ_T)
-																						{
-																							success_flag = AppendStringsToByteBuffer (buffer_p, coll_entry.dataName, NULL);
-																						}
-
-																					if (s_verbose_flag)
-																						{
-																							printf ("[%lu]: \"%s\" %d\n", index, data_s, success_flag);
-																						}
-
-																				}
-
-
-																		}		/* if (success_flag) */
-
-																	++ index;
-																}		/* if (add_flag) */
-														}
-
-												}
-											while (status >= 0);
-
-											if (GetByteBufferSize (buffer_p))
-												{
-													const char *data_s = GetByteBufferData (buffer_p);
-
-													if (s_verbose_flag)
-														{
-															printf ("final value: \"%s\"\n", data_s);
-														}
-
-													/*
-													 * Print out the space-separated matching paths
-													 */
-													printf ("%s", data_s);
+													printf ("final value: \"%s\"\n", data_s);
 												}
 
-											FreeByteBuffer (buffer_p);
-										}		/* if (buffer_p) */
+											/*
+											 * Print out the space-separated matching paths
+											 */
+											printf ("%s", data_s);
+										}
 
-									rclCloseCollection (&coll_handle);
-								}		/* if (handle >= 0) */
+									FreeByteBuffer (buffer_p);
+								}		/* if (buffer_p) */
 							else
 								{
-									error_info_s = "rclOpenCollection";
-									error_status_s = rodsErrorName (status, NULL);
-									res = 10;
+									if (s_verbose_flag)
+										{
+											fprintf (stderr, "Failed to allocate buffer to store entries");
+										}
 								}
 
 						}		/* if (status == 0) */
 					else
 						{
-							error_info_s = "clientLogin";
-							error_status_s = rodsErrorName (status, NULL);
-							res = 10;
+							if (s_verbose_flag)
+								{
+									fprintf (stderr, "Failed to log in to iRODS \"%s\"\n", rodsErrorName (status, NULL));
+								}
 						}
 
 					rcDisconnect (connection_p);
+				}		/* if (connection_p) */
+			else
+				{
+					if (s_verbose_flag)
+						{
+							fprintf (stderr, "Failed to connect to iRODS \"%s\"\n", rodsErrorName (status, NULL));
+						}
 				}
 
-		}
+		}		/* if (status >= 0) */
 	else
 		{
-			error_info_s = "getRodsEnv";
-			error_status_s = rodsErrorName (status, NULL);
+			if (s_verbose_flag)
+				{
+					fprintf (stderr, "Failed to get iRODS Environment variables \"%s\"\n", rodsErrorName (status, NULL));
+				}
+
 			res = 10;
 		}
 
 
-	if (error_info_s)
+	return res;
+}
+
+
+static int GetEntries (char *path_s, const char *partial_match_s, rcComm_t *connection_p, ByteBuffer *buffer_p)
+{
+	int num_entries = -1;
+	collHandle_t coll_handle;
+	int flags = DATA_QUERY_FIRST_FG;
+	const size_t partial_match_length = (partial_match_s != NULL) ? strlen (partial_match_s) : 0;
+	int status;
+
+	memset (&coll_handle, 0, sizeof (collHandle_t));
+
+	status = rclOpenCollection (connection_p, path_s, flags, &coll_handle);
+
+	if (s_verbose_flag)
 		{
-			if (s_verbose_flag)
-				{
-					printf ("%s \"%s\"\n", error_info_s, error_status_s);
-				}
+			printf ("Opening \"%s\" %s\n", path_s, (status >= 0) ? "succeeded" : "failed");
 		}
 
-	return res;
+
+	if (status >= 0)
+		{
+			collEnt_t coll_entry;
+			size_t index = 0;
+			bool success_flag = true;
+
+			do
+				{
+					status = rclReadCollection (connection_p, &coll_handle, &coll_entry);
+
+					if (status >= 0)
+						{
+							bool add_flag = true;
+
+							if (partial_match_s)
+								{
+									const char *local_s = GetLocalName (coll_entry.collName);
+
+									if (local_s)
+										{
+											if (strncmp (local_s, partial_match_s, partial_match_length) != 0)
+												{
+													add_flag = false;
+												}
+										}
+								}
+
+							if (add_flag)
+								{
+									const char *data_s = GetByteBufferData (buffer_p);
+
+									if (index > 0)
+										{
+											if (!AppendStringToByteBuffer (buffer_p, " "))
+												{
+													if (s_verbose_flag)
+														{
+															fprintf (stderr, "AppendStringToByteBuffer failed");
+														}
+
+													success_flag = false;
+												}
+										}
+
+									if (success_flag)
+										{
+											if (AppendStringsToByteBuffer (buffer_p, coll_entry.collName, "/", NULL))
+												{
+													if (coll_entry.objType == DATA_OBJ_T)
+														{
+															if (!AppendStringsToByteBuffer (buffer_p, coll_entry.dataName, NULL))
+																{
+																	if (s_verbose_flag)
+																		{
+																			fprintf (stderr, "AppendStringToByteBuffer failed");
+																		}
+
+																	success_flag = false;
+																}		/* if (!AppendStringsToByteBuffer (buffer_p, coll_entry.dataName, NULL)) */
+
+														}		/* if (coll_entry.objType == DATA_OBJ_T) */
+
+													if (s_verbose_flag)
+														{
+															printf ("[%lu]: \"%s\" %d\n", index, data_s, success_flag);
+														}
+
+												}		/* if (AppendStringsToByteBuffer (buffer_p, coll_entry.collName, "/", NULL)) */
+											else
+												{
+													if (s_verbose_flag)
+														{
+															fprintf (stderr, "AppendStringToByteBuffer failed");
+														}
+
+													success_flag = false;
+												}
+
+										}		/* if (success_flag) */
+
+									++ index;
+								}		/* if (add_flag) */
+
+						}		/* if (status >= 0) */
+					else
+						{
+							if (status != CAT_NO_ROWS_FOUND)
+								{
+									/* We have an error */
+									if (s_verbose_flag)
+										{
+											const char *error_status_s = rodsErrorName (status, NULL);
+											fprintf (stderr, "rclReadCollection error, %s", error_status_s);
+										}
+								}
+						}
+
+				}
+			while ((status >= 0) && (success_flag == true));
+
+			if (success_flag)
+				{
+					num_entries = index;
+				}
+
+			rclCloseCollection (&coll_handle);
+		}		/* if (status >= 0) */
+
+
+	return num_entries;
 }
 
 
@@ -324,7 +376,7 @@ static char *GetParentPath (const char *path_s)
 	char *res_s = NULL;
 	size_t len = strlen (path_s);
 
-	if (len)
+	if (len > 1)
 		{
 			size_t i = len - 1;
 			const char *ptr = path_s + i;

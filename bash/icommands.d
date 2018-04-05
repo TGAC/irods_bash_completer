@@ -12,8 +12,13 @@ _irods_completer()
     return 0
 }
 
-complete -F _irods_completer ils
 complete -F _irods_completer icp
-complete -F _irods_completer imv
+complete -F _irods_completer iget
+complete -F _irods_completer ils
 complete -F _irods_completer imkdir
+complete -F _irods_completer imv
+complete -F _irods_completer iput
+complete -F _irods_completer ireg
 complete -F _irods_completer irm
+complete -F _irods_completer irmdir
+
