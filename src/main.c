@@ -45,8 +45,6 @@ static int GetEntries (char *path_s, const char *partial_match_s, rcComm_t *conn
 int main (int argc, char *argv [])
 {
 	int res = 0;
-	rodsEnv env;
-	int status = getRodsEnv (&env);
 
 	/*
 	 * Parse the command line arguments.
@@ -54,6 +52,8 @@ int main (int argc, char *argv [])
 	if (argc > 1)
 		{
 			int i;
+			rodsEnv env;
+			int status = getRodsEnv (&env);
 
 			for (i = 1; i < argc - 1; ++ i)
 				{
@@ -70,126 +70,132 @@ int main (int argc, char *argv [])
 
 				}		/* for (i = 1; i < argc - 1; ++ i) */
 
-		}		/* if (argc > 1) */
-
-	if (status >= 0)
-		{
-			rErrMsg_t err;
-			rcComm_t *connection_p = rcConnect (env.rodsHost, env.rodsPort, env.rodsUserName, env.rodsZone,	0, &err);
-
-			if (connection_p)
+			if (status >= 0)
 				{
-					status = clientLogin (connection_p, NULL, NULL);
+					rErrMsg_t err;
+					rcComm_t *connection_p = rcConnect (env.rodsHost, env.rodsPort, env.rodsUserName, env.rodsZone,	0, &err);
 
-					if (status == 0)
+					if (connection_p)
 						{
-							ByteBuffer *buffer_p = AllocateByteBuffer (1024);
+							status = clientLogin (connection_p, NULL, NULL);
 
-							if (buffer_p)
+							if (status == 0)
 								{
-									char *parent_s = NULL;
-									char *input_path_s = (char *) argv [argc - 1];
+									ByteBuffer *buffer_p = AllocateByteBuffer (1024);
 
-									/*
-									 * Get the matches assuming the path is a complete valid path
-									 */
-									int num_entries = GetEntries (input_path_s, NULL, connection_p, buffer_p);
-
-									if (num_entries >= 0)
+									if (buffer_p)
 										{
-											if (s_verbose_flag)
+											char *parent_s = NULL;
+											char *input_path_s = (char *) argv [argc - 1];
+
+											/*
+											 * Get the matches assuming the path is a complete valid path
+											 */
+											int num_entries = GetEntries (input_path_s, NULL, connection_p, buffer_p);
+
+											if (num_entries >= 0)
 												{
-													printf ("added %d entries for matches of \"%s\"\n", num_entries, input_path_s);
-												}
-										}
-									else
-										{
-
-										}
-
-									/*
-									 * Now try it as an incomplete path
-									 */
-									parent_s = GetParentPath (input_path_s);
-
-									if (parent_s)
-										{
-											const char *local_s = GetLocalName (input_path_s);
-
-											if (local_s)
-												{
-													int num_partial_entries = GetEntries (parent_s, local_s, connection_p, buffer_p);
-
-													if (num_partial_entries >= 0)
+													if (s_verbose_flag)
 														{
-															if (s_verbose_flag)
-																{
-																	printf ("added %d entries for partial matches of \"%s\"\n", num_partial_entries, input_path_s);
-																	num_entries += num_partial_entries;
-																}
-
-														}		/* if (num_partial_entries >= 0) */
-
-												}		/* if (local_s) */
-
-											free (parent_s);
-										}		/* if (parent_s) */
-
-									if (GetByteBufferSize (buffer_p) > 0)
-										{
-											const char *data_s = GetByteBufferData (buffer_p);
-
-											if (s_verbose_flag)
+															printf ("added %d entries for matches of \"%s\"\n", num_entries, input_path_s);
+														}
+												}
+											else
 												{
-													printf ("final value: \"%s\"\n", data_s);
+
 												}
 
 											/*
-											 * Print out the space-separated matching paths
+											 * Now try it as an incomplete path
 											 */
-											printf ("%s", data_s);
+											parent_s = GetParentPath (input_path_s);
+
+											if (parent_s)
+												{
+													const char *local_s = GetLocalName (input_path_s);
+
+													if (local_s)
+														{
+															int num_partial_entries = GetEntries (parent_s, local_s, connection_p, buffer_p);
+
+															if (num_partial_entries >= 0)
+																{
+																	if (s_verbose_flag)
+																		{
+																			printf ("added %d entries for partial matches of \"%s\"\n", num_partial_entries, input_path_s);
+																			num_entries += num_partial_entries;
+																		}
+
+																}		/* if (num_partial_entries >= 0) */
+
+														}		/* if (local_s) */
+
+													free (parent_s);
+												}		/* if (parent_s) */
+
+											if (GetByteBufferSize (buffer_p) > 0)
+												{
+													const char *data_s = GetByteBufferData (buffer_p);
+
+													if (s_verbose_flag)
+														{
+															printf ("final value: \"%s\"\n", data_s);
+														}
+
+													/*
+													 * Print out the space-separated matching paths
+													 */
+													printf ("%s", data_s);
+												}
+
+											FreeByteBuffer (buffer_p);
+										}		/* if (buffer_p) */
+									else
+										{
+											if (s_verbose_flag)
+												{
+													fprintf (stderr, "Failed to allocate buffer to store entries");
+												}
 										}
 
-									FreeByteBuffer (buffer_p);
-								}		/* if (buffer_p) */
+								}		/* if (status == 0) */
 							else
 								{
 									if (s_verbose_flag)
 										{
-											fprintf (stderr, "Failed to allocate buffer to store entries");
+											fprintf (stderr, "Failed to log in to iRODS \"%s\"\n", rodsErrorName (status, NULL));
 										}
 								}
 
-						}		/* if (status == 0) */
+							rcDisconnect (connection_p);
+						}		/* if (connection_p) */
 					else
 						{
 							if (s_verbose_flag)
 								{
-									fprintf (stderr, "Failed to log in to iRODS \"%s\"\n", rodsErrorName (status, NULL));
+									fprintf (stderr, "Failed to connect to iRODS \"%s\"\n", rodsErrorName (status, NULL));
 								}
 						}
 
-					rcDisconnect (connection_p);
-				}		/* if (connection_p) */
+				}		/* if (status >= 0) */
 			else
 				{
 					if (s_verbose_flag)
 						{
-							fprintf (stderr, "Failed to connect to iRODS \"%s\"\n", rodsErrorName (status, NULL));
+							fprintf (stderr, "Failed to get iRODS Environment variables \"%s\"\n", rodsErrorName (status, NULL));
 						}
+
+					res = 10;
 				}
 
-		}		/* if (status >= 0) */
+		}		/* if (argc > 1) */
 	else
 		{
-			if (s_verbose_flag)
-				{
-					fprintf (stderr, "Failed to get iRODS Environment variables \"%s\"\n", rodsErrorName (status, NULL));
-				}
-
-			res = 10;
+			/*
+			 * No initial path given, so just return the root "/"
+			 */
+			printf ("/");
 		}
-
 
 	return res;
 }
