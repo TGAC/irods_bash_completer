@@ -6,10 +6,42 @@ _irods_completer()
     prev="${COMP_WORDS[COMP_CWORD-1]}"
     opts=`/home/billy/Projects/irods_bash_completer/build/irods_bash_completer ${cur}`
 
-    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 
+# The completion of the local files for iput, iget and irsync are 
+# taken from the irods legacy repo at 
+#
+# https://github.com/irods/irods-legacy/blob/master/iRODS/irods_completion.bash
+#
+# Thanks to Terrell Russell for the heads up :-)
+
+  # Case of "iput", first arg is a local file
+  if [ $1 = "iput" -a $COMP_CWORD -eq 1 ]; then
+    COMPREPLY=( $(compgen -o default ${cur}) )
+
+  # Case of "iget", second arg is a local file
+  elif [ $1 = "iget" -a $COMP_CWORD -eq 2 ]; then
+    COMPREPLY=( $(compgen -o default ${cur}) )
+
+  # Case of "irsync", manage i: prefix
+  elif [ $1 = "irsync" ]; then
+
+    if [[ $cur == i:* ]]; then
+      base=${cur:2}
+      COMPREPLY=( $(compgen -W "$list \ " ${base} ) )
+    else
+      COMPREPLY=( $(compgen -P i: -W "$list \ " ${cur} ) )
+      COMPREPLY+=( $(compgen -o default ${cur}) )
+    fi
+
+  # General case, back to our code
+  else
+
+    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
 		[[ ${COMPREPLY} = */ ]] && compopt -o nospace
-    return 0
+
+	fi
+
+  return 0
 }
 
 complete -F _irods_completer icp
