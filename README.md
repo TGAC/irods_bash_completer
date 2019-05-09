@@ -1,4 +1,4 @@
-# iRODS Bash Completer
+﻿# iRODS Bash Completer
 
 This is a tool to allow the iRODS client icommands to have auto-complete functionality within Bash.
 
@@ -9,7 +9,7 @@ script.
 
 ## Building the command line tool
 
-The tool is built with the given makefile. You will need to have the iRODS header files and runtime libraries to build it.
+The tool is built with the given makefile. You will need to have the iRODS header files and runtime libraries which are part of the irods-dev package to build it.
 By default, these will be in ```/usr/include/irods/``` and ```/usr/lib/```, however, if you have installed iRODS to a non-standard
 location, simply adjust the ```IRODS_HOME``` variable in the makefile to the appropriate value.
 
