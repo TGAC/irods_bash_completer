@@ -18,6 +18,8 @@
 
 #include "rodsClient.h"
 
+
+
 #include "byte_buffer.h"
 
 /*
@@ -77,7 +79,7 @@ int main (int argc, char *argv [])
 
 					if (connection_p)
 						{
-							#ifdef IRODS_4_3
+							#if (IRODS_VERSION_MAJOR >= 4) && (IRODS_VERSION_MINOR >= 3)
 							load_client_api_plugins ();
 							#endif
 

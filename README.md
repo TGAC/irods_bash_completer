@@ -9,15 +9,12 @@ script.
 
 ## Building the command line tool
 
-The tool is built with the given makefile. Copy the default_user.prefs file to user.prefs to allow it to be accessed by the makefile.
+The tool is built with the given makefile. If you have iRODS installed in a non-standard location then copy the default_user.prefs file to user.prefs to allow it to be accessed by the makefile. aThen djust the ```IRODS_HOME``` variable in ```user.prefs``` to the correct location. 
+
 
 ~~~
 cp default_user.prefs user.prefs
 ~~~
-
-
-By default, iRODS will be installed so that  ```/usr/include/irods/``` and ```/usr/lib/``` contain  the iRODS header files and runtime libraries which are part of the irods-dev package. However, if you have installed iRODS to a non-standard
-location, simply adjust the ```IRODS_HOME``` variable in ```user.prefs``` to the correct location. Similarly if you are running iRODS 4.3.x or above, uncomment the CFLAGS line in ```user.prefs``` too.  
 
 You can then build the tool by running
 
