@@ -4,7 +4,7 @@ _irods_completer()
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts=`/home/billy/Projects/irods_bash_completer/build/irods_bash_completer ${cur}`
+    opts=`/home/billy/bin/irods_bash_completer ${cur}`
 
 
 # The completion of the local files for iput, iget and irsync are 
@@ -22,6 +22,10 @@ _irods_completer()
   elif [ $1 = "iget" -a $COMP_CWORD -eq 2 ]; then
     COMPREPLY=( $(compgen -o default ${cur}) )
 
+  # Case of "ireg", second arg is a local file
+  elif [ $1 = "ireg" -a $COMP_CWORD -eq 2 ]; then
+    COMPREPLY=( $(compgen -o default ${cur}) )
+    
   # Case of "irsync", manage i: prefix
   elif [ $1 = "irsync" ]; then
 

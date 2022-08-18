@@ -1,0 +1,7 @@
+
+# if you are running iRODS 4.3.x or above uncoment the following line 
+#CFLAGS := -DIRODS_4_3
+
+# if you have iRODS installed in a custom location, uncomment and set 
+# the IRODS_HOME variable below to point to the correct location
+#IRODS_HOME := /home/billy/Applications/irods/

@@ -9,9 +9,16 @@ script.
 
 ## Building the command line tool
 
-The tool is built with the given makefile. You will need to have the iRODS header files and runtime libraries which are part of the irods-dev package to build it.
+The tool is built with the given makefile. You will need to have the iRODS header files and runtime libraries which are part of the irods-dev package to build it. Copy the default_user.prefs file to user.prefs to aloow it to be accessed by the makefile.
+
+~~~
+cp default_user.prefs user.prefs
+~~~
+
+
+
 By default, these will be in ```/usr/include/irods/``` and ```/usr/lib/```, however, if you have installed iRODS to a non-standard
-location, simply adjust the ```IRODS_HOME``` variable in the makefile to the appropriate value.
+location, simply adjust the ```IRODS_HOME``` variable in ```user.prefs``` to the correct location. Similarly if you are running iRODS 4.3.x or above, uncomment the CFLAGS line in ```user.prefs``` too.  
 
 You can then build the tool by running
 
@@ -55,4 +62,4 @@ via the [Earlham Institute](http://www.earlham.ac.uk/contact-us/) page.
 
 ## License ##
 
-Copyright (c) 2018, Earlham Institute under the Apache License Version 2.0.
+Copyright (c) 2018-22, Earlham Institute under the Apache License Version 2.0.

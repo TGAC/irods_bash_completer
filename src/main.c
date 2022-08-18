@@ -77,6 +77,10 @@ int main (int argc, char *argv [])
 
 					if (connection_p)
 						{
+							#ifdef IRODS_4_3
+							load_client_api_plugins ();
+							#endif
+
 							status = clientLogin (connection_p, NULL, NULL);
 
 							if (status == 0)
